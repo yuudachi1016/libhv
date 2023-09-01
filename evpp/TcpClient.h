@@ -68,11 +68,11 @@ public:
         memset(&remote_addr, 0, sizeof(remote_addr));
         int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
         if (ret != 0) {
-            return NABS(ret);
+            return nullptr;
         }
         this->remote_host = remote_host;
         this->remote_port = remote_port;
-        return remote_addr;
+        return &remote_addr;
     }
     int createsocket_2(struct sockaddr* remote_addr, int connfd) {
         // int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);
