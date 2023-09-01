@@ -63,6 +63,32 @@ public:
         return connfd;
     }
 
+    // <--socket 由客户端创建
+    sockaddr_u* createsocket_2(const char* remote_host, int remote_port) {
+        memset(&remote_addr, 0, sizeof(remote_addr));
+        int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
+        if (ret != 0) {
+            return NABS(ret);
+        }
+        this->remote_host = remote_host;
+        this->remote_port = remote_port;
+        return remote_addr;
+    }
+    int createsocket_2(struct sockaddr* remote_addr, int connfd) {
+        // int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        if (connfd < 0) {
+            perror("socket");
+            return -2;
+        }
+
+        hio_t* io = hio_get(loop_->loop(), connfd);
+        assert(io != NULL);
+        hio_set_peeraddr(io, remote_addr, SOCKADDR_LEN(remote_addr));
+        channel = std::make_shared<TSocketChannel>(io);
+        return connfd;
+    }
+    // socket 由客户端创建-->
+
     int bind(int local_port, const char* local_host = "0.0.0.0") {
         sockaddr_u local_addr;
         memset(&local_addr, 0, sizeof(local_addr));
