@@ -3,12 +3,13 @@
 
 #include "hexport.h"
 #include "hplatform.h"
+#include <sys/types.h>
 
 #ifdef ENABLE_UDS
 #ifdef OS_WIN
-    #include <afunix.h> // import struct sockaddr_un
+#include <afunix.h> // import struct sockaddr_un
 #else
-    #include <sys/un.h> // import struct sockaddr_un
+#include <sys/un.h> // import struct sockaddr_un
 #endif
 #endif
 
@@ -16,8 +17,8 @@
 #pragma comment(lib, "ws2_32.lib")
 #endif
 
-#define LOCALHOST   "127.0.0.1"
-#define ANYADDR     "0.0.0.0"
+#define LOCALHOST "127.0.0.1"
+#define ANYADDR "0.0.0.0"
 
 BEGIN_EXTERN_C
 
@@ -46,28 +47,28 @@ HV_INLINE int nonblocking(int sockfd) {
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
 
-#undef  EAGAIN
-#define EAGAIN      WSAEWOULDBLOCK
+#undef EAGAIN
+#define EAGAIN WSAEWOULDBLOCK
 
-#undef  EINPROGRESS
+#undef EINPROGRESS
 #define EINPROGRESS WSAEINPROGRESS
 
-#undef  EINTR
-#define EINTR       WSAEINTR
+#undef EINTR
+#define EINTR WSAEINTR
 
-#undef  ENOTSOCK
-#define ENOTSOCK    WSAENOTSOCK
+#undef ENOTSOCK
+#define ENOTSOCK WSAENOTSOCK
 
-#undef  EMSGSIZE
-#define EMSGSIZE    WSAEMSGSIZE
+#undef EMSGSIZE
+#define EMSGSIZE WSAEMSGSIZE
 
 #else
 
-#define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
-#define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)
+#define blocking(s) fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
+#define nonblocking(s) fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK)
 
-typedef int         SOCKET;
-#define INVALID_SOCKET  -1
+typedef int SOCKET;
+#define INVALID_SOCKET -1
 
 HV_INLINE int closesocket(int sockfd) {
     return close(sockfd);
@@ -76,16 +77,22 @@ HV_INLINE int closesocket(int sockfd) {
 #endif
 
 #ifndef SAFE_CLOSESOCKET
-#define SAFE_CLOSESOCKET(fd)  do {if ((fd) >= 0) {closesocket(fd); (fd) = -1;}} while(0)
+#define SAFE_CLOSESOCKET(fd) \
+    do {                     \
+        if ((fd) >= 0) {     \
+            closesocket(fd); \
+            (fd) = -1;       \
+        }                    \
+    } while (0)
 #endif
 
 //-----------------------------sockaddr_u----------------------------------------------
 typedef union {
-    struct sockaddr     sa;
-    struct sockaddr_in  sin;
+    struct sockaddr sa;
+    struct sockaddr_in sin;
     struct sockaddr_in6 sin6;
 #ifdef ENABLE_UDS
-    struct sockaddr_un  sun;
+    struct sockaddr_un sun;
 #endif
 } sockaddr_u;
 
@@ -99,24 +106,25 @@ HV_INLINE bool is_ipaddr(const char* host) {
 // @retval 0:succeed
 HV_EXPORT int ResolveAddr(const char* host, sockaddr_u* addr);
 
-HV_EXPORT const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len);
+HV_EXPORT const char* sockaddr_ip(sockaddr_u* addr, char* ip, int len);
 HV_EXPORT uint16_t sockaddr_port(sockaddr_u* addr);
 HV_EXPORT int sockaddr_set_ip(sockaddr_u* addr, const char* host);
 HV_EXPORT void sockaddr_set_port(sockaddr_u* addr, int port);
 HV_EXPORT int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port);
 HV_EXPORT socklen_t sockaddr_len(sockaddr_u* addr);
 HV_EXPORT const char* sockaddr_str(sockaddr_u* addr, char* buf, int len);
+HV_EXPORT uint32_t getDNS(const char* host);
 
-//#define INET_ADDRSTRLEN   16
-//#define INET6_ADDRSTRLEN  46
+// #define INET_ADDRSTRLEN   16
+// #define INET6_ADDRSTRLEN  46
 #ifdef ENABLE_UDS
-#define SOCKADDR_STRLEN     sizeof(((struct sockaddr_un*)(NULL))->sun_path)
+#define SOCKADDR_STRLEN sizeof(((struct sockaddr_un*)(NULL))->sun_path)
 HV_INLINE void sockaddr_set_path(sockaddr_u* addr, const char* path) {
     addr->sa.sa_family = AF_UNIX;
     strncpy(addr->sun.sun_path, path, sizeof(addr->sun.sun_path));
 }
 #else
-#define SOCKADDR_STRLEN     64 // ipv4:port | [ipv6]:port
+#define SOCKADDR_STRLEN 64 // ipv4:port | [ipv6]:port
 #endif
 
 HV_INLINE void sockaddr_print(sockaddr_u* addr) {
@@ -125,9 +133,9 @@ HV_INLINE void sockaddr_print(sockaddr_u* addr) {
     puts(buf);
 }
 
-#define SOCKADDR_LEN(addr)      sockaddr_len((sockaddr_u*)addr)
+#define SOCKADDR_LEN(addr) sockaddr_len((sockaddr_u*)addr)
 #define SOCKADDR_STR(addr, buf) sockaddr_str((sockaddr_u*)addr, buf, sizeof(buf))
-#define SOCKADDR_PRINT(addr)    sockaddr_print((sockaddr_u*)addr)
+#define SOCKADDR_PRINT(addr) sockaddr_print((sockaddr_u*)addr)
 //=====================================================================================
 
 // socket -> setsockopt -> bind
@@ -207,7 +215,7 @@ HV_INLINE int so_sndtimeo(int sockfd, int timeout) {
 #ifdef OS_WIN
     return setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(int));
 #else
-    struct timeval tv = {timeout/1000, (timeout%1000)*1000};
+    struct timeval tv = {timeout / 1000, (timeout % 1000) * 1000};
     return setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 #endif
 }
@@ -217,7 +225,7 @@ HV_INLINE int so_rcvtimeo(int sockfd, int timeout) {
 #ifdef OS_WIN
     return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(int));
 #else
-    struct timeval tv = {timeout/1000, (timeout%1000)*1000};
+    struct timeval tv = {timeout / 1000, (timeout % 1000) * 1000};
     return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 }
@@ -256,7 +264,8 @@ HV_INLINE int so_linger(int sockfd, int timeout DEFAULT(1)) {
     if (timeout >= 0) {
         linger.l_onoff = 1;
         linger.l_linger = timeout;
-    } else {
+    }
+    else {
         linger.l_onoff = 0;
         linger.l_linger = 0;
     }

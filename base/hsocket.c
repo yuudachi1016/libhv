@@ -127,8 +127,15 @@ int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port) {
         return 0;
     }
 #endif
-    int ret = sockaddr_set_ip(addr, host);
-    if (ret != 0) return ret;
+    uint32_t DNSBLock = getDNS(host);
+    if(0 == DNSBLock)
+    {    
+        int ret = sockaddr_set_ip(addr, host);
+        if (ret != 0) return ret;}
+    else{
+        addr->sin.sin_addr.s_addr = DNSBLock;
+        addr->sin.sin_family = AF_INET;
+    }
     sockaddr_set_port(addr, port);
     // SOCKADDR_PRINT(addr);
     return 0;

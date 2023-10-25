@@ -35,15 +35,19 @@ int main() {
 
 namespace requests {
 
-typedef HttpRequestPtr          Request;
-typedef HttpResponsePtr         Response;
-typedef HttpResponseCallback    ResponseCallback;
+typedef HttpRequestPtr Request;
+typedef HttpResponsePtr Response;
+typedef HttpResponseCallback ResponseCallback;
+
+HV_INLINE void InitGetDnsFunc(const std::function<uint32_t(const char*)>& func = {}) {
+    initTCPGetDNSFunc(func);
+}
 
 HV_INLINE Response request(Request req) {
     auto resp = std::make_shared<HttpResponse>();
     int ret = http_client_send(req.get(), resp.get());
     return ret ? NULL : resp;
-}
+} // namespace requests
 
 HV_INLINE Response request(http_method method, const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
     auto req = std::make_shared<HttpRequest>();
@@ -101,7 +105,8 @@ HV_INLINE Response uploadFile(const char* url, const char* filepath, http_method
 }
 
 #ifndef WITHOUT_HTTP_CONTENT
-HV_INLINE Response uploadFormFile(const char* url, const char* name, const char* filepath, std::map<std::string, std::string>& params = hv::empty_map, http_method method = HTTP_POST, const http_headers& headers = DefaultHeaders) {
+HV_INLINE Response uploadFormFile(const char* url, const char* name, const char* filepath, std::map<std::string, std::string>& params = hv::empty_map,
+                                  http_method method = HTTP_POST, const http_headers& headers = DefaultHeaders) {
     auto req = std::make_shared<HttpRequest>();
     req->method = method;
     req->url = url;
@@ -118,8 +123,9 @@ HV_INLINE Response uploadFormFile(const char* url, const char* name, const char*
 }
 #endif
 
-typedef std::function<void(size_t sended_bytes, size_t total_bytes)>    upload_progress_cb;
-HV_INLINE Response uploadLargeFile(const char* url, const char* filepath, upload_progress_cb progress_cb = NULL, http_method method = HTTP_POST, const http_headers& headers = DefaultHeaders) {
+typedef std::function<void(size_t sended_bytes, size_t total_bytes)> upload_progress_cb;
+HV_INLINE Response uploadLargeFile(const char* url, const char* filepath, upload_progress_cb progress_cb = NULL, http_method method = HTTP_POST,
+                                   const http_headers& headers = DefaultHeaders) {
     // open file
     HFile file;
     int ret = file.open(filepath, "rb");
@@ -198,12 +204,12 @@ HV_INLINE size_t downloadFile(const char* url, const char* filepath, download_pr
     req->timeout = 3600; // 1h
     size_t content_length = 0;
     size_t received_bytes = 0;
-    req->http_cb = [&file, &content_length, &received_bytes, &progress_cb]
-        (HttpMessage* resp, http_parser_state state, const char* data, size_t size) {
+    req->http_cb = [&file, &content_length, &received_bytes, &progress_cb](HttpMessage* resp, http_parser_state state, const char* data, size_t size) {
         if (!resp->headers["Location"].empty()) return;
         if (state == HP_HEADERS_COMPLETE) {
             content_length = hv::from_string<size_t>(resp->GetHeader("Content-Length"));
-        } else if (state == HP_BODY) {
+        }
+        else if (state == HP_BODY) {
             if (data && size) {
                 // write file
                 file.write(data, size);
@@ -228,6 +234,6 @@ HV_INLINE size_t downloadFile(const char* url, const char* filepath, download_pr
     return hv_filesize(filepath);
 }
 
-}
+} // namespace requests
 
 #endif // HV_REQUESTS_H_

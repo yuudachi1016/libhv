@@ -68,6 +68,8 @@ HV_EXPORT int http_client_send(HttpRequest* req, HttpResponse* resp);
 // http_client_send_async(&default_async_client, ...)
 HV_EXPORT int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL);
 
+HV_EXPORT void initTCPGetDNSFunc(const std::function<uint32_t(const char*)>& func);
+
 // low-level api
 // @retval >=0 connfd, <0 error
 HV_EXPORT int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout);
@@ -81,9 +83,7 @@ namespace hv {
 
 class HttpClient {
 public:
-    HttpClient(const char* host = NULL, int port = DEFAULT_HTTP_PORT, int https = 0) {
-        _client = http_client_new(host, port, https);
-    }
+    HttpClient(const char* host = NULL, int port = DEFAULT_HTTP_PORT, int https = 0) { _client = http_client_new(host, port, https); }
 
     ~HttpClient() {
         if (_client) {
@@ -93,79 +93,45 @@ public:
     }
 
     // timeout: s
-    int setTimeout(int timeout) {
-        return http_client_set_timeout(_client, timeout);
-    }
+    int setTimeout(int timeout) { return http_client_set_timeout(_client, timeout); }
 
     // SSL/TLS
-    int setSslCtx(hssl_ctx_t ssl_ctx) {
-        return http_client_set_ssl_ctx(_client, ssl_ctx);
-    }
-    int newSslCtx(hssl_ctx_opt_t* opt) {
-        return http_client_new_ssl_ctx(_client, opt);
-    }
+    int setSslCtx(hssl_ctx_t ssl_ctx) { return http_client_set_ssl_ctx(_client, ssl_ctx); }
+    int newSslCtx(hssl_ctx_opt_t* opt) { return http_client_new_ssl_ctx(_client, opt); }
 
     // headers
-    int clearHeaders() {
-        return http_client_clear_headers(_client);
-    }
-    int setHeader(const char* key, const char* value) {
-        return http_client_set_header(_client, key, value);
-    }
-    int delHeader(const char* key) {
-        return http_client_del_header(_client, key);
-    }
-    const char* getHeader(const char* key) {
-        return http_client_get_header(_client, key);
-    }
+    int clearHeaders() { return http_client_clear_headers(_client); }
+    int setHeader(const char* key, const char* value) { return http_client_set_header(_client, key, value); }
+    int delHeader(const char* key) { return http_client_del_header(_client, key); }
+    const char* getHeader(const char* key) { return http_client_get_header(_client, key); }
 
     // http_proxy
-    int setHttpProxy(const char* host, int port) {
-        return http_client_set_http_proxy(_client, host, port);
-    }
+    int setHttpProxy(const char* host, int port) { return http_client_set_http_proxy(_client, host, port); }
     // https_proxy
-    int setHttpsProxy(const char* host, int port) {
-        return http_client_set_https_proxy(_client, host, port);
-    }
+    int setHttpsProxy(const char* host, int port) { return http_client_set_https_proxy(_client, host, port); }
     // no_proxy
-    int addNoProxy(const char* host) {
-        return http_client_add_no_proxy(_client, host);
-    }
+    int addNoProxy(const char* host) { return http_client_add_no_proxy(_client, host); }
 
     // sync
-    int send(HttpRequest* req, HttpResponse* resp) {
-        return http_client_send(_client, req, resp);
-    }
+    int send(HttpRequest* req, HttpResponse* resp) { return http_client_send(_client, req, resp); }
 
     // async
-    int sendAsync(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL) {
-        return http_client_send_async(_client, req, std::move(resp_cb));
-    }
+    int sendAsync(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL) { return http_client_send_async(_client, req, std::move(resp_cb)); }
 
     // low-level api
     int connect(const char* host, int port = DEFAULT_HTTP_PORT, int https = 0, int timeout = DEFAULT_HTTP_CONNECT_TIMEOUT) {
         return http_client_connect(_client, host, port, https, timeout);
     }
-    int sendHeader(HttpRequest* req) {
-        return http_client_send_header(_client, req);
-    }
-    int sendData(const char* data, int size) {
-        return http_client_send_data(_client, data, size);
-    }
-    int recvData(char* data, int size) {
-        return http_client_recv_data(_client, data, size);
-    }
-    int recvResponse(HttpResponse* resp) {
-        return http_client_recv_response(_client, resp);
-    }
-    int close() {
-        return http_client_close(_client);
-    }
+    int sendHeader(HttpRequest* req) { return http_client_send_header(_client, req); }
+    int sendData(const char* data, int size) { return http_client_send_data(_client, data, size); }
+    int recvData(char* data, int size) { return http_client_recv_data(_client, data, size); }
+    int recvResponse(HttpResponse* resp) { return http_client_recv_response(_client, resp); }
+    int close() { return http_client_close(_client); }
 
 private:
     http_client_t* _client;
 };
 
-}
+} // namespace hv
 
 #endif // HV_HTTP_CLIENT_H_

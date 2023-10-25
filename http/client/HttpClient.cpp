@@ -19,34 +19,42 @@
 
 using namespace hv;
 
+static std::function<uint32_t(const char*)> g_YSGetDnsFunc = {};
+uint32_t getDNS(const char* host) {
+    if (g_YSGetDnsFunc)
+        return g_YSGetDnsFunc(host);
+    else
+        return 0;
+}
+
 struct http_client_s {
-    std::string  host;
-    int          port;
-    int          https;
-    int          timeout; // s
+    std::string host;
+    int port;
+    int https;
+    int timeout; // s
     http_headers headers;
     // http_proxy
-    std::string  http_proxy_host;
-    int          http_proxy_port;
+    std::string http_proxy_host;
+    int http_proxy_port;
     // https_proxy
-    std::string  https_proxy_host;
-    int          https_proxy_port;
+    std::string https_proxy_host;
+    int https_proxy_port;
     // no_proxy
-    StringList   no_proxy_hosts;
-//private:
+    StringList no_proxy_hosts;
+// private:
 #ifdef WITH_CURL
     CURL* curl;
 #endif
     // for sync
-    int             fd;
-    unsigned int    keepalive_requests;
-    hssl_t          ssl;
-    hssl_ctx_t      ssl_ctx;
-    bool            alloced_ssl_ctx;
-    HttpParserPtr   parser;
+    int fd;
+    unsigned int keepalive_requests;
+    hssl_t ssl;
+    hssl_ctx_t ssl_ctx;
+    bool alloced_ssl_ctx;
+    HttpParserPtr parser;
     // for async
-    std::mutex                              mutex_;
-    std::shared_ptr<hv::AsyncHttpClient>    async_client_;
+    std::mutex mutex_;
+    std::shared_ptr<hv::AsyncHttpClient> async_client_;
 
     http_client_s() {
         host = LOCALHOST;
@@ -188,8 +196,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
         }
     }
     if (use_proxy) {
-        req->SetProxy(https ? cli->https_proxy_host.c_str() : cli->http_proxy_host.c_str(),
-                      https ? cli->https_proxy_port         : cli->http_proxy_port);
+        req->SetProxy(https ? cli->https_proxy_host.c_str() : cli->http_proxy_host.c_str(), https ? cli->https_proxy_port : cli->http_proxy_port);
     }
 
     if (req->timeout == 0) {
@@ -209,7 +216,7 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
     cli->Close();
     int blocktime = DEFAULT_CONNECT_TIMEOUT;
     if (timeout > 0) {
-        blocktime = MIN(timeout*1000, blocktime);
+        blocktime = MIN(timeout * 1000, blocktime);
     }
     int connfd = ConnectTimeout(host, port, blocktime);
     if (connfd < 0) {
@@ -223,9 +230,11 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
         hssl_ctx_t ssl_ctx = NULL;
         if (cli->ssl_ctx) {
             ssl_ctx = cli->ssl_ctx;
-        } else if (g_ssl_ctx) {
+        }
+        else if (g_ssl_ctx) {
             ssl_ctx = g_ssl_ctx;
-        } else {
+        }
+        else {
             cli->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
             cli->alloced_ssl_ctx = true;
         }
@@ -296,16 +305,16 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
     time_t start_time = gettick_ms();
     time_t cur_time = start_time, left_time = INFINITE;
 
-#define CHECK_TIMEOUT                                           \
-    do {                                                        \
-        if (timeout_ms > 0) {                                   \
-            cur_time = gettick_ms();                            \
-            if (cur_time - start_time >= timeout_ms) {          \
-                goto timeout;                                   \
-            }                                                   \
-            left_time = timeout_ms - (cur_time - start_time);   \
-        }                                                       \
-    } while(0);
+#define CHECK_TIMEOUT                                         \
+    do {                                                      \
+        if (timeout_ms > 0) {                                 \
+            cur_time = gettick_ms();                          \
+            if (cur_time - start_time >= timeout_ms) {        \
+                goto timeout;                                 \
+            }                                                 \
+            left_time = timeout_ms - (cur_time - start_time); \
+        }                                                     \
+    } while (0);
 
     uint32_t retry_count = req->retry_count;
     if (cli->keepalive_requests > 0 && retry_count == 0) {
@@ -324,7 +333,7 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
     if (connfd <= 0 || cli->host != req->host || cli->port != req->port) {
         cli->host = req->host;
         cli->port = req->port;
-connect:
+    connect:
         connfd = http_client_connect(cli, req->host.c_str(), req->port, https, connect_timeout);
         if (connfd < 0) {
             return connfd;
@@ -337,7 +346,7 @@ connect:
     total_nsend = nsend = nrecv = 0;
 send:
     char* data = NULL;
-    size_t len  = 0;
+    size_t len = 0;
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (total_nsend < len) {
@@ -388,12 +397,13 @@ recv:
         if (nparse != nrecv) {
             return ERR_PARSE;
         }
-    } while(!cli->parser->IsComplete());
+    } while (!cli->parser->IsComplete());
 
     keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
     if (keepalive) {
         ++cli->keepalive_requests;
-    } else {
+    }
+    else {
         cli->Close();
     }
     return 0;
@@ -434,14 +444,14 @@ int http_client_recv_response(http_client_t* cli, HttpResponse* resp) {
         if (nparse != nrecv) {
             return ERR_PARSE;
         }
-    } while(!cli->parser->IsComplete());
+    } while (!cli->parser->IsComplete());
 
     return 0;
 }
 
 #ifdef WITH_CURL
 static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
-    if (buf == NULL || userdata == NULL)    return 0;
+    if (buf == NULL || userdata == NULL) return 0;
     size_t len = size * cnt;
     std::string str(buf, len);
     HttpResponse* resp = (HttpResponse*)userdata;
@@ -449,7 +459,7 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
     if (pos == std::string::npos) {
         if (strncmp(buf, "HTTP/", 5) == 0) {
             // status line
-            //hlogd("%s", buf);
+            // hlogd("%s", buf);
             int http_major = 1, http_minor = 1, status_code = 200;
             if (buf[5] == '1') {
                 // HTTP/1.1 200 OK\r\n
@@ -471,14 +481,14 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
     else {
         // headers
         std::string key = trim(str.substr(0, pos));
-        std::string value = trim(str.substr(pos+1));
+        std::string value = trim(str.substr(pos + 1));
         resp->headers[key] = value;
     }
     return len;
 }
 
-static size_t s_body_cb(char* buf, size_t size, size_t cnt, void *userdata) {
-    if (buf == NULL || userdata == NULL)    return 0;
+static size_t s_body_cb(char* buf, size_t size, size_t cnt, void* userdata) {
+    if (buf == NULL || userdata == NULL) return 0;
     size_t len = size * cnt;
     HttpMessage* resp = (HttpMessage*)userdata;
     if (resp->http_cb) {
@@ -488,7 +498,8 @@ static size_t s_body_cb(char* buf, size_t size, size_t cnt, void *userdata) {
             resp->http_cb(resp, HP_HEADERS_COMPLETE, NULL, 0);
         }
         resp->http_cb(resp, HP_BODY, buf, len);
-    } else {
+    }
+    else {
         resp->body.append(buf, len);
     }
     return len;
@@ -531,11 +542,11 @@ static int http_client_exec_curl(http_client_t* cli, HttpRequest* req, HttpRespo
     // url
     req->DumpUrl();
     curl_easy_setopt(curl, CURLOPT_URL, req->url.c_str());
-    //hlogd("%s %s HTTP/%d.%d", http_method_str(req->method), req->url.c_str(), req->http_major, req->http_minor);
+    // hlogd("%s %s HTTP/%d.%d", http_method_str(req->method), req->url.c_str(), req->http_major, req->http_minor);
 
     // headers
     req->FillContentType();
-    struct curl_slist *headers = NULL;
+    struct curl_slist* headers = NULL;
     for (auto& pair : req->headers) {
         std::string header = pair.first;
         header += ": ";
@@ -545,8 +556,8 @@ static int http_client_exec_curl(http_client_t* cli, HttpRequest* req, HttpRespo
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     // body
-    //struct curl_httppost* httppost = NULL;
-    //struct curl_httppost* lastpost = NULL;
+    // struct curl_httppost* httppost = NULL;
+    // struct curl_httppost* lastpost = NULL;
     if (req->body.size() == 0) {
         req->DumpBody();
         /*
@@ -726,4 +737,8 @@ int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
     }
 
     return http_client_exec_async(hv_default_async_http_client(), req, std::move(resp_cb));
+}
+
+void initTCPGetDNSFunc(const std::function<uint32_t(const char*)>& func) {
+    g_YSGetDnsFunc = func;
 }
