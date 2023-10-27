@@ -4,14 +4,14 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "hlog.h"
+#include "NetworkLibInterface.h"
 
 #include "EventLoopThread.h"
 #include "Channel.h"
 
 namespace hv {
 
-template<class TSocketChannel = SocketChannel>
-class TcpClientEventLoopTmpl {
+template <class TSocketChannel = SocketChannel> class TcpClientEventLoopTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
@@ -31,9 +31,7 @@ public:
         HV_FREE(unpack_setting);
     }
 
-    const EventLoopPtr& loop() {
-        return loop_;
-    }
+    const EventLoopPtr& loop() { return loop_; }
 
     // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
     // @retval >=0 connfd, <0 error
@@ -49,7 +47,7 @@ public:
     }
 
     int createsocket(struct sockaddr* remote_addr) {
-        int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        int connfd = NetworkLibInterface::GetInstance().NetworkCreateSocket(remote_addr->sa_family, SOCK_STREAM, 0);
         // SOCKADDR_PRINT(remote_addr);
         if (connfd < 0) {
             perror("socket");
@@ -63,7 +61,7 @@ public:
         return connfd;
     }
 
-    // <--socket 由客户端创建
+    // <--socket 鐢卞鎴风鍒涘缓
     sockaddr_u* createsocket_2(const char* remote_host, int remote_port) {
         memset(&remote_addr, 0, sizeof(remote_addr));
         int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
@@ -75,7 +73,7 @@ public:
         return &remote_addr;
     }
     int createsocket_2(struct sockaddr* remote_addr, int connfd) {
-        // int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        // int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);   // 澶栭儴璋冪敤
         if (connfd < 0) {
             perror("socket");
             return -2;
@@ -87,7 +85,7 @@ public:
         channel = std::make_shared<TSocketChannel>(io);
         return connfd;
     }
-    // socket 由客户端创建-->
+    // socket 鐢卞鎴风鍒涘缓-->
 
     int bind(int local_port, const char* local_host = "0.0.0.0") {
         sockaddr_u local_addr;
@@ -113,7 +111,7 @@ public:
     // closesocket thread-safe
     void closesocket() {
         if (channel) {
-            loop_->runInLoop([this](){
+            loop_->runInLoop([this]() {
                 if (channel) {
                     setReconnect(NULL);
                     channel->close();
@@ -189,16 +187,12 @@ public:
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
         hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
-        loop_->setTimeout(delay, [this](TimerID timerID){
-            startConnect();
-        });
+        loop_->setTimeout(delay, [this](TimerID timerID) { startConnect(); });
         return 0;
     }
 
     // start thread-safe
-    void start() {
-        loop_->runInLoop(std::bind(&TcpClientEventLoopTmpl::startConnect, this));
-    }
+    void start() { loop_->runInLoop(std::bind(&TcpClientEventLoopTmpl::startConnect, this)); }
 
     bool isConnected() {
         if (channel == NULL) return false;
@@ -210,12 +204,8 @@ public:
         if (!isConnected()) return -1;
         return channel->write(data, size);
     }
-    int send(Buffer* buf) {
-        return send(buf->data(), buf->size());
-    }
-    int send(const std::string& str) {
-        return send(str.data(), str.size());
-    }
+    int send(Buffer* buf) { return send(buf->data(), buf->size()); }
+    int send(const std::string& str) { return send(str.data(), str.size()); }
 
     int withTLS(hssl_ctx_opt_t* opt = NULL) {
         tls = true;
@@ -229,9 +219,7 @@ public:
         return 0;
     }
 
-    void setConnectTimeout(int ms) {
-        connect_timeout = ms;
-    }
+    void setConnectTimeout(int ms) { connect_timeout = ms; }
 
     void setReconnect(reconn_setting_t* setting) {
         if (setting == NULL) {
@@ -243,9 +231,7 @@ public:
         }
         *reconn_setting = *setting;
     }
-    bool isReconnect() {
-        return reconn_setting && reconn_setting->cur_retry_cnt > 0;
-    }
+    bool isReconnect() { return reconn_setting && reconn_setting->cur_retry_cnt > 0; }
 
     void setUnpack(unpack_setting_t* setting) {
         if (setting == NULL) {
@@ -259,48 +245,41 @@ public:
     }
 
 public:
-    TSocketChannelPtr       channel;
+    TSocketChannelPtr channel;
 
-    std::string             remote_host;
-    int                     remote_port;
-    sockaddr_u              remote_addr;
-    int                     connect_timeout;
-    bool                    tls;
-    hssl_ctx_opt_t*         tls_setting;
-    reconn_setting_t*       reconn_setting;
-    unpack_setting_t*       unpack_setting;
+    std::string remote_host;
+    int remote_port;
+    sockaddr_u remote_addr;
+    int connect_timeout;
+    bool tls;
+    hssl_ctx_opt_t* tls_setting;
+    reconn_setting_t* reconn_setting;
+    unpack_setting_t* unpack_setting;
 
     // Callback
-    std::function<void(const TSocketChannelPtr&)>           onConnection;
-    std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
+    std::function<void(const TSocketChannelPtr&)> onConnection;
+    std::function<void(const TSocketChannelPtr&, Buffer*)> onMessage;
     // NOTE: Use Channel::isWriteComplete in onWriteComplete callback to determine whether all data has been written.
-    std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
+    std::function<void(const TSocketChannelPtr&, Buffer*)> onWriteComplete;
 
 private:
-    EventLoopPtr            loop_;
+    EventLoopPtr loop_;
 };
 
-template<class TSocketChannel = SocketChannel>
-class TcpClientTmpl : private EventLoopThread, public TcpClientEventLoopTmpl<TSocketChannel> {
+template <class TSocketChannel = SocketChannel> class TcpClientTmpl : private EventLoopThread, public TcpClientEventLoopTmpl<TSocketChannel> {
 public:
     TcpClientTmpl(EventLoopPtr loop = NULL)
-        : EventLoopThread(loop)
-        , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
-        , is_loop_owner(loop == NULL)
-    {}
-    virtual ~TcpClientTmpl() {
-        stop(true);
-    }
+        : EventLoopThread(loop), TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop()), is_loop_owner(loop == NULL) {}
+    virtual ~TcpClientTmpl() { stop(true); }
 
-    const EventLoopPtr& loop() {
-        return EventLoopThread::loop();
-    }
+    const EventLoopPtr& loop() { return EventLoopThread::loop(); }
 
     // start thread-safe
     void start(bool wait_threads_started = true) {
         if (isRunning()) {
             TcpClientEventLoopTmpl<TSocketChannel>::start();
-        } else {
+        }
+        else {
             EventLoopThread::start(wait_threads_started, [this]() {
                 TcpClientTmpl::startConnect();
                 return 0;
@@ -322,6 +301,6 @@ private:
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;
 
-}
+} // namespace hv
 
 #endif // HV_TCP_CLIENT_HPP_
