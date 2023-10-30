@@ -1,7 +1,6 @@
 #ifndef YS_NETWORKLIBINTERFACE_H
 #define YS_NETWORKLIBINTERFACE_H
 
-#include "hexport.h"
 #include <functional>
 
 class NetworkLibInterface {

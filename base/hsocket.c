@@ -127,7 +127,7 @@ int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port) {
         return 0;
     }
 #endif
-    uint32_t DNSBLock = getDNS(host);
+    uint32_t DNSBLock = GetDNS_External(host);
     if(0 == DNSBLock)
     {    
         int ret = sockaddr_set_ip(addr, host);
@@ -210,7 +210,8 @@ error:
 static int sockaddr_connect(sockaddr_u* peeraddr, int nonblock) {
     // socket -> nonblocking -> connect
     int ret = 0;
-    int connfd = socket(peeraddr->sa.sa_family, SOCK_STREAM, 0);
+    // int connfd = socket(peeraddr->sa.sa_family, SOCK_STREAM, 0);
+    int connfd = Getsocket_External(peeraddr->sa.sa_family, SOCK_STREAM, 0);
     if (connfd < 0) {
         perror("socket");
         goto error;

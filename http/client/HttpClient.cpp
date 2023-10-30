@@ -13,6 +13,7 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "HttpParser.h"
+#include "NetworkLibInterface.h"
 
 // for async
 #include "AsyncHttpClient.h"
@@ -20,11 +21,14 @@
 using namespace hv;
 
 static std::function<uint32_t(const char*)> g_YSGetDnsFunc = {};
-uint32_t getDNS(const char* host) {
+uint32_t GetDNS_External(const char* host) {
     if (g_YSGetDnsFunc)
         return g_YSGetDnsFunc(host);
     else
         return 0;
+}
+int Getsocket_External(int __domain, int __type, int __protocol) {
+    return NetworkLibInterface::GetInstance().NetworkCreateSocket(__domain, __type, __protocol);
 }
 
 struct http_client_s {

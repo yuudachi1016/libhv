@@ -113,7 +113,8 @@ HV_EXPORT void sockaddr_set_port(sockaddr_u* addr, int port);
 HV_EXPORT int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port);
 HV_EXPORT socklen_t sockaddr_len(sockaddr_u* addr);
 HV_EXPORT const char* sockaddr_str(sockaddr_u* addr, char* buf, int len);
-HV_EXPORT uint32_t getDNS(const char* host);
+HV_EXPORT uint32_t GetDNS_External(const char* host);
+HV_EXPORT int Getsocket_External(int __domain, int __type, int __protocol);
 
 // #define INET_ADDRSTRLEN   16
 // #define INET6_ADDRSTRLEN  46
